@@ -1,0 +1,233 @@
+import pygame
+from sys import exit
+from pygame.locals import *
+from enum import Enum
+from pathlib import Path
+from os import path, system
+from random import randint
+
+colours = {"0":{"dark": (0, 0, 0), "normal": (27, 14, 24), "light": (46, 23, 41)},
+          "1":{"dark": (27, 14, 24), "normal": (46, 23, 41), "light": (91, 42, 73)},
+          "2":{"dark": (46, 23, 41), "normal": (91, 42, 73), "light": (136, 58, 94)},
+          "3":{"dark": (91, 42, 73), "normal": (136, 58, 94), "light": (179, 70, 102)},
+          "4":{"dark": (136, 58, 94), "normal": (179, 70, 102), "light": (199, 90, 104)},
+          "5":{"dark": (179, 70, 102), "normal": (199, 90, 104), "light": (210, 135, 132)},
+          "6":{"dark": (199, 90, 104), "normal": (210, 135, 132), "light": (227, 190, 181)},
+          "7":{"dark": (210, 135, 132), "normal": (227, 190, 181), "light": (244, 228, 218)},
+          "8":{"dark": (227, 190, 181), "normal": (244, 228, 218), "light": (255, 255, 255)},
+          "9":{"dark": (244, 228, 218), "normal": (255, 255, 255), "light": (255, 255, 255)}}
+
+class Button():
+    def __init__(self,
+                 surface,
+                 position=(10, 10),
+                 resolution=(75, 50),
+                 function=lambda: print("Hello world!"),
+                 text="Button",
+                 visibility=True,
+                 lightColour=(227, 119, 61),
+                 mainColour=(189, 72, 68),
+                 darkColour=(133, 53, 80),
+                 cooldown=0):
+
+        self.surface = surface
+        self.pos = position
+        self.res = resolution
+        self.width = self.res[0]
+        self.height = self.res[1]
+
+        self.function = function
+        self.text = text
+
+        self.fontObj = pygame.font.Font(
+            path.join(Path(__file__).parent, r"Pixeltype.ttf"), 50)
+        self.rect = pygame.Rect((self.pos), (self.width, self.height))
+        self.visibility = visibility
+        self.lightCol = lightColour
+        self.mainCol = mainColour
+        self.darkCol = darkColour
+
+        self.cooldownAnchor = cooldown
+        self.cooldownProgress = cooldown
+        self.waitForRelease = False
+
+    def update(self, surface, buttonPressed):
+        self.rect = pygame.Rect((self.pos), (self.width, self.height))
+        if self.cooldownProgress != self.cooldownAnchor:
+            self.cooldownProgress += 1
+
+        if buttonPressed == True:
+            if self.visibility == True:
+                pygame.draw.rect(surface, self.darkCol, self.rect)
+            self.waitForRelease = True
+
+        if self.waitForRelease == True and buttonPressed == False:
+            self.waitForRelease = False
+            if self.cooldownProgress == self.cooldownAnchor:
+                self.function()
+                self.cooldownProgress = 0
+
+        if self.visibility == True:
+            if self.rect.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
+                pygame.draw.rect(surface, self.darkCol, self.rect)
+
+            elif self.isHovered == True:
+                pygame.draw.rect(surface, self.lightCol, self.rect)
+            else:
+                pygame.draw.rect(surface, self.mainCol, self.rect)
+
+        if self.visibility == True:
+            self.textSurface = self.fontObj.render(self.text, True, (0, 0, 0))
+            self.textRect = self.textSurface.get_rect(
+                center=((self.width / 2) + self.pos[0], (self.height / 2) + self.pos[1]))
+            surface.blit(self.textSurface, self.textRect)
+
+class Page:
+    def __init__(self, surface, pos):
+        self.pos = pos
+        self.buttons = [[Button(surface, position=(self.pos[0]+(i*50), self.pos[1]+(j*50)), resolution=(50,50), text="0", function=lambda i=i, j=j:incIntensity(self.buttons[j][i])) for i in range(0,5)] for j in range(0,5)]
+
+    def update(self, surface, event):
+        for row in self.buttons:
+            guiPageUpdate(surface, [button for button in row], event)
+
+    def clear(self):
+        for row in self.buttons:
+            for button in row:
+                button.text = "0"
+
+                button.lightCol = colours[button.text]["light"]
+                button.mainCol = colours[button.text]["normal"]
+                button.darkCol = colours[button.text]["dark"]
+
+class Animation:
+    def __init__(self, surface, pos):
+        self.selectedPage = 0
+        self.pages = []
+        self.surface = surface
+        self.pos = pos
+
+    def newPage(self):
+        self.pages.append(Page(self.surface, self.pos))
+        self.pages[-1].clear()
+
+    def update(self, surface, event):
+        for index in range(len(self.pages)):
+            if index == self.selectedPage:
+                self.pages[index].update(surface, event)
+
+    def changePage(self, direction):
+        if self.selectedPage + direction >= 0:
+            if self.selectedPage + direction < len(self.pages):
+                self.selectedPage += direction
+            else:
+                self.newPage()
+                self.selectedPage += direction
+
+def guiPageUpdate(screen, buttons, event):
+    for button in buttons:
+        if button.rect.collidepoint(pygame.mouse.get_pos()):
+            button.isHovered = True
+        else:
+            button.isHovered = False
+
+        if button.isHovered == True and event.type == pygame.MOUSEBUTTONDOWN:
+            button.update(screen, buttonPressed=True)
+        else:
+            button.update(screen, buttonPressed=False)
+
+
+def incIntensity(button):
+    button.text = str(int(button.text) + 1)
+    if button.text == "10":
+        button.text = "0"
+
+    button.lightCol = colours[button.text]["light"]
+    button.mainCol = colours[button.text]["normal"]
+    button.darkCol = colours[button.text]["dark"]
+
+def loopAnimation(button, frameRate):
+    pass
+    
+
+def getCenter(objRes, canvasRes): return (
+    ((canvasRes[0] - objRes[0]) // 2), ((canvasRes[1] - objRes[1]) // 2))
+
+def getImage(filePath): return path.join(Path(__file__).parent, filePath)
+
+def scaleBy5(image): return pygame.transform.scale(
+    image, ((image.get_width() * 5), (image.get_height() * 5)))
+
+def loadFile(filePath): return pygame.image.load(
+    getImage(filePath)).convert_alpha()
+
+def toggleLoop():
+    global isLooping
+    isLooping = not isLooping
+    if isLooping == True:
+        loop.text = "Pause"
+    else:
+        loop.text = "Play"
+
+
+    
+
+def main():
+    pygame.init()
+    pygame.font.init()
+
+    resolution = (650, 650)
+    screen = pygame.display.set_mode(resolution)
+    clock = pygame.time.Clock()
+
+    global isLooping
+    isLooping = False
+
+    animation = Animation(surface=screen, pos=getCenter((250,250), resolution))
+    animation.newPage()
+    animation.pages[animation.selectedPage].clear()
+    fontObj = pygame.font.Font(
+            path.join(Path(__file__).parent, r"Pixeltype.ttf"), 50)
+
+    loopInterval = 15
+    global timeToNextFrame
+    timeToNextFrame = loopInterval
+    def updateLoop():
+        global timeToNextFrame
+        if timeToNextFrame != 0:
+            timeToNextFrame -= 1
+        if isLooping == True and timeToNextFrame == 0:
+            if animation.selectedPage < len(animation.pages) - 1:
+                animation.selectedPage += 1
+            else:
+                animation.selectedPage = 0
+            timeToNextFrame = loopInterval
+
+    # Buttons
+    clear = Button(surface=screen, text = "Clear", position=(30, getCenter((100, 50), resolution)[1]), resolution=(100,50), function = lambda: animation.pages[animation.selectedPage].clear())
+    next = Button(surface=screen, text = "Next", position=(getCenter((100, 50), resolution)[0] + 110, 460), resolution=(100,50), function = lambda: animation.changePage(1))
+    global loop
+    loop = Button(surface=screen, text = "Play", position=(getCenter((100, 50), resolution)[0], 460), resolution=(100,50), function=lambda: toggleLoop())
+    back = Button(surface=screen, text = "Back", position=(getCenter((100, 50), resolution)[0] - 110, 460), resolution=(100,50), function = lambda: animation.changePage(-1))
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                exit()
+
+        pygame.draw.rect(screen, (0, 0, 0), ((0, 0), resolution))  # Refresh
+        animation.update(surface=screen, event=event)
+        guiPageUpdate(screen, [clear, next, loop, back], event)
+
+        textSurface = fontObj.render(f"Page {animation.selectedPage + 1} / {len(animation.pages)}", True, (255, 255, 255))
+        screen.blit(textSurface, (getCenter(textSurface.get_size(), resolution)[0], 160))
+
+
+        clock.tick(60)
+        pygame.display.update()
+        updateLoop()
+
+
+if __name__ == '__main__':
+    main()
